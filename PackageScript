@@ -6,6 +6,7 @@ builder.SetBuildFolder('package')
 folder_list = [
 	'addons/sourcemod/extensions',
 	'addons/sourcemod/scripting/include',
+	'addons/sourcemod/scripting',
 	'addons/sourcemod/gamedata'
 ]
 
@@ -28,13 +29,18 @@ def CopyFiles(src, dest, files):
 		builder.AddCopy(source_path, dest_entry)
 
 # Include files 
-CopyFiles('extra', 'addons/sourcemod/scripting/include',
+CopyFiles('addons', 'addons/sourcemod/scripting/include',
 	[ 'collisionhook.inc', ]
 )
 
+# Script files
+CopyFiles('addons', 'addons/sourcemod/scripting',
+	[ 'collisionhook_test.sp' ]
+)
+
 # GameData files
-CopyFiles('extra', 'addons/sourcemod/gamedata',
-	[ 'collisionhook.txt' ]
+CopyFiles('addons', 'addons/sourcemod/gamedata',
+	[ 'collisionhook.games.txt' ]
 )
 
 # Copy binaries

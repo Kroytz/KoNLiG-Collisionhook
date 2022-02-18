@@ -10,9 +10,7 @@ class IPhysicsEnvironment;
 class IPhysicsCollisionSolver;
 class IPhysicsObject;
 
-
-class CollisionHook :
-	public SDKExtension
+class CollisionHook : public SDKExtension
 {
 
 public:

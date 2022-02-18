@@ -1,5 +1,3 @@
-
-
 #include "extension.h"
 
 #include "sourcehook.h"
@@ -10,11 +8,8 @@
 
 #include "tier1/strtools.h"
 
-
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-
 
 CollisionHook g_CollisionHook;
 SMEXT_LINK( &g_CollisionHook );
@@ -73,31 +68,30 @@ DETOUR_DECL_STATIC2( PassServerEntityFilterFunc, bool, const IHandleEntity *, pT
 	return DETOUR_STATIC_CALL( PassServerEntityFilterFunc )( pTouch, pPass );
 }
 
-
-bool CollisionHook::SDK_OnLoad( char *error, size_t maxlength, bool late )
+bool CollisionHook::SDK_OnLoad(char *error, size_t maxlength, bool late)
 {
-	char szConfError[ 256 ] = "";
-	if ( !gameconfs->LoadGameConfigFile( "collisionhook", &g_pGameConf, szConfError, sizeof( szConfError ) ) )
+	char szGamedataError[256] = "";
+	if (!gameconfs->LoadGameConfigFile("collisionhook.games", &g_pGameConf, szGamedataError, sizeof(szGamedataError)))
 	{
-		snprintf( error, maxlength,  "Could not read collisionhook gamedata: %s", szConfError );
+		snprintf(error, maxlength, "Could not read collisionhook gamedata: %s", szGamedataError);
 		return false;
 	}
 
-	CDetourManager::Init( g_pSM->GetScriptingEngine(), g_pGameConf );
+	CDetourManager::Init(g_pSM->GetScriptingEngine(), g_pGameConf);
 
-	g_pFilterDetour = DETOUR_CREATE_STATIC( PassServerEntityFilterFunc, "PassServerEntityFilter" );
-	if ( !g_pFilterDetour )
+	g_pFilterDetour = DETOUR_CREATE_STATIC(PassServerEntityFilterFunc, "PassServerEntityFilter");
+	if (!g_pFilterDetour)
 	{
-		snprintf( error, maxlength,  "Unable to hook PassServerEntityFilter!" );
+		snprintf(error, maxlength, "Unable to create a detour for PassServerEntityFilter!");
 		return false;
 	}
 
 	g_pFilterDetour->EnableDetour();
 
-	g_pCollisionFwd = forwards->CreateForward( "CH_ShouldCollide", ET_Hook, 3, NULL, Param_Cell, Param_Cell, Param_CellByRef );
-	g_pPassFwd = forwards->CreateForward( "CH_PassFilter", ET_Hook, 3, NULL, Param_Cell, Param_Cell, Param_CellByRef );
+	g_pCollisionFwd = forwards->CreateForward("CH_ShouldCollide", ET_Hook, 3, NULL, Param_Cell, Param_Cell, Param_CellByRef );
+	g_pPassFwd = forwards->CreateForward("CH_PassFilter", ET_Hook, 3, NULL, Param_Cell, Param_Cell, Param_CellByRef );
 	
-	sharesys->RegisterLibrary( myself, "collisionhook" );
+	sharesys->RegisterLibrary(myself, "collisionhook");
 
 	return true;
 }
@@ -134,7 +128,6 @@ bool CollisionHook::SDK_OnMetamodUnload(char *error, size_t maxlength)
 	return true;
 }
 
-
 IPhysicsEnvironment *CollisionHook::CreateEnvironment()
 {
 	// in order to hook IPhysicsCollisionSolver::ShouldCollide, we need to know when a solver is installed
@@ -162,38 +155,41 @@ void CollisionHook::SetCollisionSolver( IPhysicsCollisionSolver *pSolver )
 	RETURN_META( MRES_IGNORED );
 }
 
-int CollisionHook::VPhysics_ShouldCollide( IPhysicsObject *pObj1, IPhysicsObject *pObj2, void *pGameData1, void *pGameData2 )
+int CollisionHook::VPhysics_ShouldCollide(IPhysicsObject *pObj1, IPhysicsObject *pObj2, void *pGameData1, void *pGameData2)
 {
-	if ( g_pCollisionFwd->GetFunctionCount() == 0 )
-		RETURN_META_VALUE( MRES_IGNORED, 1 ); // no plugins are interested, let the game decide
-
-	if ( pObj1 == pObj2 )
-		RETURN_META_VALUE( MRES_IGNORED, 1 ); // self collisions aren't interesting
-
-	CBaseEntity *pEnt1 = reinterpret_cast<CBaseEntity *>( pGameData1 );
-	CBaseEntity *pEnt2 = reinterpret_cast<CBaseEntity *>( pGameData2 );
-
-	if ( !pEnt1 || !pEnt2 )
-		RETURN_META_VALUE( MRES_IGNORED, 1 ); // we need two entities
-
-	cell_t ent1 = gamehelpers->EntityToBCompatRef( pEnt1 );
-	cell_t ent2 = gamehelpers->EntityToBCompatRef( pEnt2 );
-
-	// todo: do we want to fill result with with the game's result? perhaps the forward path is more performant...
-	cell_t result = 0;
-	g_pCollisionFwd->PushCell( ent1 );
-	g_pCollisionFwd->PushCell( ent2 );
-	g_pCollisionFwd->PushCellByRef( &result );
-
-	cell_t retValue = 0;
-	g_pCollisionFwd->Execute( &retValue );
-
-	if ( retValue > Pl_Continue )
+	// No plugins using 'CH_ShouldCollide' forward, therefore no need to call it.
+	// Object hitting itself.
+	if (!g_pCollisionFwd->GetFunctionCount() || pObj1 == pObj2)
 	{
-		// plugin wants to change the result
-		RETURN_META_VALUE( MRES_SUPERCEDE, result == 1 );
+		RETURN_META_VALUE(MRES_IGNORED, 1);
+	}
+
+	CBaseEntity *pEnt1 = reinterpret_cast<CBaseEntity *>(pGameData1);
+	CBaseEntity *pEnt2 = reinterpret_cast<CBaseEntity *>(pGameData2);
+
+	// One of the entities is invalid.
+	if (!pEnt1 || !pEnt2)
+	{
+		RETURN_META_VALUE( MRES_IGNORED, 1 );
+	}
+
+	cell_t ent1 = gamehelpers->EntityToBCompatRef(pEnt1);
+	cell_t ent2 = gamehelpers->EntityToBCompatRef(pEnt2);
+
+	cell_t result = 0;
+	g_pCollisionFwd->PushCell(ent1);
+	g_pCollisionFwd->PushCell(ent2);
+	g_pCollisionFwd->PushCellByRef(&result);
+
+	cell_t forward_return = 0;
+	g_pCollisionFwd->Execute(&forward_return);
+	
+	// plugin wants to change the result
+	if (forward_return >= Pl_Handled)
+	{
+		RETURN_META_VALUE(MRES_SUPERCEDE, !!result);
 	}
 
 	// otherwise, game decides
-	RETURN_META_VALUE( MRES_IGNORED, 0 );
+	RETURN_META_VALUE(MRES_IGNORED, 0);
 }
