@@ -12,7 +12,7 @@
 #include "tier0/memdbgon.h"
 
 CollisionHook g_CollisionHook;
-SMEXT_LINK( &g_CollisionHook );
+SMEXT_LINK(&g_CollisionHook);
 
 
 SH_DECL_HOOK0( IPhysics, CreateEnvironment, SH_NOATTRIB, 0 , IPhysicsEnvironment * );
@@ -31,41 +31,35 @@ IForward *g_pPassFwd = NULL;
 
 DETOUR_DECL_STATIC2( PassServerEntityFilterFunc, bool, const IHandleEntity *, pTouch, const IHandleEntity *, pPass )
 {
-	if ( g_pPassFwd->GetFunctionCount() == 0 )
-		return DETOUR_STATIC_CALL( PassServerEntityFilterFunc )( pTouch, pPass );
-
-	if ( pTouch == pPass )
-		return DETOUR_STATIC_CALL( PassServerEntityFilterFunc )( pTouch, pPass ); // self checks aren't interesting
-
-	if ( !pTouch || !pPass )
-		return DETOUR_STATIC_CALL( PassServerEntityFilterFunc )( pTouch, pPass ); // need two valid entities
-
-	CBaseEntity *pEnt1 = const_cast<CBaseEntity *>( UTIL_EntityFromEntityHandle( pTouch ) );
-	CBaseEntity *pEnt2 = const_cast<CBaseEntity *>( UTIL_EntityFromEntityHandle( pPass ) );
-
-	if ( !pEnt1 || !pEnt2 )
-		return DETOUR_STATIC_CALL( PassServerEntityFilterFunc )( pTouch, pPass ); // we need both entities
-
-	cell_t ent1 = gamehelpers->EntityToBCompatRef( pEnt1 );
-	cell_t ent2 = gamehelpers->EntityToBCompatRef( pEnt2 );
-
-	// todo: do we want to fill result with with the game's result? perhaps the forward path is more performant...
-	cell_t result = 0;
-	g_pPassFwd->PushCell( ent1 );
-	g_pPassFwd->PushCell( ent2 );
-	g_pPassFwd->PushCellByRef( &result );
-
-	cell_t retValue = 0;
-	g_pPassFwd->Execute( &retValue );
-
-	if ( retValue > Pl_Continue )
+	// Perform required validations.
+	if (!g_pPassFwd->GetFunctionCount() || (!pTouch || !pPass) || pTouch == pPass)
 	{
-		// plugin wants to change the result
-		return result == 1;
+		return DETOUR_STATIC_CALL( PassServerEntityFilterFunc )( pTouch, pPass );
 	}
 
-	// otherwise, game decides
-	return DETOUR_STATIC_CALL( PassServerEntityFilterFunc )( pTouch, pPass );
+	CBaseEntity *pEnt1 = const_cast<CBaseEntity *>(UTIL_EntityFromEntityHandle(pTouch));
+	CBaseEntity *pEnt2 = const_cast<CBaseEntity *>(UTIL_EntityFromEntityHandle(pPass));
+
+	if (!pEnt1 || !pEnt2)
+	{
+		return DETOUR_STATIC_CALL(PassServerEntityFilterFunc)(pTouch, pPass);
+	}
+
+	cell_t ent1 = gamehelpers->EntityToBCompatRef(pEnt1);
+	cell_t ent2 = gamehelpers->EntityToBCompatRef(pEnt2);
+	
+	cell_t result = 0;
+	g_pPassFwd->PushCell(ent1);
+	g_pPassFwd->PushCell(ent2);
+	g_pPassFwd->PushCellByRef(&result);
+	g_pPassFwd->Execute();
+
+	if (result != Result_Ignore)
+	{
+		return result - 1;
+	}
+
+	return DETOUR_STATIC_CALL(PassServerEntityFilterFunc)(pTouch, pPass);
 }
 
 bool CollisionHook::SDK_OnLoad(char *error, size_t maxlength, bool late)
@@ -98,12 +92,12 @@ bool CollisionHook::SDK_OnLoad(char *error, size_t maxlength, bool late)
 
 void CollisionHook::SDK_OnUnload()
 {
-	forwards->ReleaseForward( g_pCollisionFwd );
-	forwards->ReleaseForward( g_pPassFwd );
+	forwards->ReleaseForward(g_pCollisionFwd);
+	forwards->ReleaseForward(g_pPassFwd);
 
-	gameconfs->CloseGameConfigFile( g_pGameConf );
+	gameconfs->CloseGameConfigFile(g_pGameConf);
 
-	if ( g_pFilterDetour )
+	if (g_pFilterDetour)
 	{
 		g_pFilterDetour->Destroy();
 		g_pFilterDetour = NULL;
@@ -112,16 +106,16 @@ void CollisionHook::SDK_OnUnload()
 
 bool CollisionHook::SDK_OnMetamodLoad( ISmmAPI *ismm, char *error, size_t maxlen, bool late )
 {
-	GET_V_IFACE_CURRENT( GetPhysicsFactory, g_pPhysics, IPhysics, VPHYSICS_INTERFACE_VERSION );
+	GET_V_IFACE_CURRENT(GetPhysicsFactory, g_pPhysics, IPhysics, VPHYSICS_INTERFACE_VERSION);
 
-	SH_ADD_HOOK( IPhysics, CreateEnvironment, g_pPhysics, SH_MEMBER( this, &CollisionHook::CreateEnvironment ), false );
+	SH_ADD_HOOK(IPhysics, CreateEnvironment, g_pPhysics, SH_MEMBER(this, &CollisionHook::CreateEnvironment), false);
 
 	return true;
 }
 
 bool CollisionHook::SDK_OnMetamodUnload(char *error, size_t maxlength)
 {
-	SH_REMOVE_HOOK( IPhysics, CreateEnvironment, g_pPhysics, SH_MEMBER( this, &CollisionHook::CreateEnvironment ), false );
+	SH_REMOVE_HOOK(IPhysics, CreateEnvironment, g_pPhysics, SH_MEMBER(this, &CollisionHook::CreateEnvironment), false);
 
 	g_pPhysics = NULL;
 
@@ -135,24 +129,28 @@ IPhysicsEnvironment *CollisionHook::CreateEnvironment()
 
 	IPhysicsEnvironment *pEnvironment = SH_CALL( g_pPhysics, &IPhysics::CreateEnvironment )();
 
-	if ( !pEnvironment )
+	if (!pEnvironment)
+	{
 		RETURN_META_VALUE( MRES_SUPERCEDE, pEnvironment ); // just in case
-
+	}
+	
 	// hook so we know when a solver is installed
-	SH_ADD_HOOK( IPhysicsEnvironment, SetCollisionSolver, pEnvironment, SH_MEMBER( this, &CollisionHook::SetCollisionSolver ), false );
+	SH_ADD_HOOK(IPhysicsEnvironment, SetCollisionSolver, pEnvironment, SH_MEMBER(this, &CollisionHook::SetCollisionSolver), false);
 
-	RETURN_META_VALUE( MRES_SUPERCEDE, pEnvironment );
+	RETURN_META_VALUE(MRES_SUPERCEDE, pEnvironment);
 }
 
 void CollisionHook::SetCollisionSolver( IPhysicsCollisionSolver *pSolver )
 {
-	if ( !pSolver )
-		RETURN_META( MRES_IGNORED ); // this shouldn't happen, but knowing valve...
+	if (!pSolver)
+	{
+		RETURN_META(MRES_IGNORED); // this shouldn't happen, but knowing valve...
+	}
 
 	// the game is installing a solver, hook the func we want
-	SH_ADD_HOOK( IPhysicsCollisionSolver, ShouldCollide, pSolver, SH_MEMBER( this, &CollisionHook::VPhysics_ShouldCollide ), false );
+	SH_ADD_HOOK(IPhysicsCollisionSolver, ShouldCollide, pSolver, SH_MEMBER(this, &CollisionHook::VPhysics_ShouldCollide), false);
 
-	RETURN_META( MRES_IGNORED );
+	RETURN_META(MRES_IGNORED);
 }
 
 int CollisionHook::VPhysics_ShouldCollide(IPhysicsObject *pObj1, IPhysicsObject *pObj2, void *pGameData1, void *pGameData2)
@@ -170,24 +168,22 @@ int CollisionHook::VPhysics_ShouldCollide(IPhysicsObject *pObj1, IPhysicsObject 
 	// One of the entities is invalid.
 	if (!pEnt1 || !pEnt2)
 	{
-		RETURN_META_VALUE( MRES_IGNORED, 1 );
+		RETURN_META_VALUE(MRES_IGNORED, 1);
 	}
 
 	cell_t ent1 = gamehelpers->EntityToBCompatRef(pEnt1);
 	cell_t ent2 = gamehelpers->EntityToBCompatRef(pEnt2);
-
-	cell_t result = 0;
+	
+	cell_t result = Result_Ignore;
 	g_pCollisionFwd->PushCell(ent1);
 	g_pCollisionFwd->PushCell(ent2);
 	g_pCollisionFwd->PushCellByRef(&result);
-
-	cell_t forward_return = 0;
-	g_pCollisionFwd->Execute(&forward_return);
+	g_pCollisionFwd->Execute();
 	
 	// plugin wants to change the result
-	if (forward_return >= Pl_Handled)
+	if (result != Result_Ignore)
 	{
-		RETURN_META_VALUE(MRES_SUPERCEDE, !!result);
+		RETURN_META_VALUE(MRES_SUPERCEDE, result - 1);
 	}
 
 	// otherwise, game decides

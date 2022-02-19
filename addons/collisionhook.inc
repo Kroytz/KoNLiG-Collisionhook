@@ -3,16 +3,21 @@
 #endif
 #define _collisionhook_included
 
+enum CollisionHookResult
+{
+	Result_Ignore, 	// Plugin didn't take any action, let's the game decide
+	Result_Allow,	// Allow the hook to go through.
+	Result_Block	// Block the hook.
+};
+
 /**
  * Called when the game is performing VPhysics collision checks between two entities.
  * 
  * @param ent1		First entity index.
  * @param ent2		Second entity index.
- * @param result	True if the two entities should collide, false if not.
- * 
- * @return			Plugin_Handled or higher to use 'result' value as the original return value.
+ * @param result	CollisionHookResult value.
  */
-forward Action CH_ShouldCollide(int ent1, int ent2, bool &result);
+forward void CH_ShouldCollide(int ent1, int ent2, CollisionHookResult &result);
 
 /**
  * Called when the game performs collision checks through trace filters.
@@ -21,11 +26,9 @@ forward Action CH_ShouldCollide(int ent1, int ent2, bool &result);
  * 
  * @param ent1		First entity index.
  * @param ent2		Second entity index.
- * @param result	True if the two entities should collide, false if not.
- * 
- * @return			Plugin_Handled or higher to use 'result' value as the original return value.
+ * @param result	CollisionHookResult value.
  */
-forward Action CH_PassFilter(int ent1, int ent2, bool &result);
+forward void CH_PassFilter(int ent1, int ent2, CollisionHookResult &result);
 
 /**
  * Do not edit below this line!

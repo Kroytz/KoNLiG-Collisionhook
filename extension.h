@@ -2,9 +2,14 @@
 #ifndef _INCLUDE_COLLISIONHOOK_EXTENSION_H_
 #define _INCLUDE_COLLISIONHOOK_EXTENSION_H_
 
-
 #include "smsdk_ext.h"
 
+enum CollisionHookResult
+{
+	Result_Ignore, 	// Plugin didn't take any action, let's the game decide
+	Result_Allow,	// Allow the hook to go through.
+	Result_Block	// Block the hook.
+};
 
 class IPhysicsEnvironment;
 class IPhysicsCollisionSolver;
@@ -86,7 +91,7 @@ public: // hooks
 	IPhysicsEnvironment *CreateEnvironment();
 	void SetCollisionSolver( IPhysicsCollisionSolver *pSolver );
 	int VPhysics_ShouldCollide( IPhysicsObject *pObj1, IPhysicsObject *pObj2, void *pGameData1, void *pGameData2 );
-
+	
 };
 
 // adapted from util_shared.h
