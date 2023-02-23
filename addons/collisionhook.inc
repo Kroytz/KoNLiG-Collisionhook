@@ -6,8 +6,8 @@
 enum CollisionHookResult
 {
 	Result_Ignore, 	// Plugin didn't take any action, let's the game decide
-	Result_Allow,	// Allow the hook to go through.
-	Result_Block	// Block the hook.
+	Result_Block,	// Block the hook.
+	Result_Allow	// Allow the hook to go through.
 };
 
 /**
