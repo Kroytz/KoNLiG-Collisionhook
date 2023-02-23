@@ -34,7 +34,7 @@ DETOUR_DECL_STATIC2( PassServerEntityFilterFunc, bool, const IHandleEntity *, pT
 	// Perform required validations.
 	if (!g_pPassFwd->GetFunctionCount() || (!pTouch || !pPass) || pTouch == pPass)
 	{
-		return DETOUR_STATIC_CALL( PassServerEntityFilterFunc )( pTouch, pPass );
+		return DETOUR_STATIC_CALL(PassServerEntityFilterFunc)(pTouch, pPass);
 	}
 
 	CBaseEntity *pEnt1 = const_cast<CBaseEntity *>(UTIL_EntityFromEntityHandle(pTouch));
@@ -47,7 +47,7 @@ DETOUR_DECL_STATIC2( PassServerEntityFilterFunc, bool, const IHandleEntity *, pT
 
 	cell_t ent1 = gamehelpers->EntityToBCompatRef(pEnt1);
 	cell_t ent2 = gamehelpers->EntityToBCompatRef(pEnt2);
-	
+
 	cell_t result = 0;
 	g_pPassFwd->PushCell(ent1);
 	g_pPassFwd->PushCell(ent2);
@@ -84,7 +84,7 @@ bool CollisionHook::SDK_OnLoad(char *error, size_t maxlength, bool late)
 
 	g_pCollisionFwd = forwards->CreateForward("CH_ShouldCollide", ET_Hook, 3, NULL, Param_Cell, Param_Cell, Param_CellByRef );
 	g_pPassFwd = forwards->CreateForward("CH_PassFilter", ET_Hook, 3, NULL, Param_Cell, Param_Cell, Param_CellByRef );
-	
+
 	sharesys->RegisterLibrary(myself, "collisionhook");
 
 	return true;
@@ -133,7 +133,7 @@ IPhysicsEnvironment *CollisionHook::CreateEnvironment()
 	{
 		RETURN_META_VALUE( MRES_SUPERCEDE, pEnvironment ); // just in case
 	}
-	
+
 	// hook so we know when a solver is installed
 	SH_ADD_HOOK(IPhysicsEnvironment, SetCollisionSolver, pEnvironment, SH_MEMBER(this, &CollisionHook::SetCollisionSolver), false);
 
@@ -173,13 +173,13 @@ int CollisionHook::VPhysics_ShouldCollide(IPhysicsObject *pObj1, IPhysicsObject 
 
 	cell_t ent1 = gamehelpers->EntityToBCompatRef(pEnt1);
 	cell_t ent2 = gamehelpers->EntityToBCompatRef(pEnt2);
-	
+
 	cell_t result = Result_Ignore;
 	g_pCollisionFwd->PushCell(ent1);
 	g_pCollisionFwd->PushCell(ent2);
 	g_pCollisionFwd->PushCellByRef(&result);
 	g_pCollisionFwd->Execute();
-	
+
 	// plugin wants to change the result
 	if (result != Result_Ignore)
 	{

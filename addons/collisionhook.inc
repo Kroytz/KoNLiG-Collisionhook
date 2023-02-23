@@ -12,7 +12,7 @@ enum CollisionHookResult
 
 /**
  * Called when the game is performing VPhysics collision checks between two entities.
- * 
+ *
  * @param ent1		First entity index.
  * @param ent2		Second entity index.
  * @param result	CollisionHookResult value.
@@ -23,7 +23,7 @@ forward void CH_ShouldCollide(int ent1, int ent2, CollisionHookResult &result);
  * Called when the game performs collision checks through trace filters.
  *
  * Note that you should avoid doing expensive computations or declaring large local arrays.
- * 
+ *
  * @param ent1		First entity index.
  * @param ent2		Second entity index.
  * @param result	CollisionHookResult value.
@@ -33,7 +33,7 @@ forward void CH_PassFilter(int ent1, int ent2, CollisionHookResult &result);
 /**
  * Do not edit below this line!
  */
-public Extension __ext_collisionhook = 
+public Extension __ext_collisionhook =
 {
 	name = "collisionhook",
 	file = "collisionhook.ext",
